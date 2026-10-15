@@ -1,32 +1,23 @@
 # relayroom
 
-A small WebRTC room and signaling toolkit for applications that need reliable calls without coupling product code to a specific signaling vendor.
+Transport-independent WebRTC signaling primitives in TypeScript.
 
-The first release contains a testable signaling core with:
-
-- Explicit peer lifecycle and bounded reconnect backoff
-- Sequenced, room-scoped signaling messages
-- Duplicate, self, and cross-room message rejection
-- Polite/impolite roles for perfect-negotiation glare handling
-- User-impact call-quality grading from WebRTC statistics
+It covers peer state, reconnect backoff, sequenced room messages, duplicate and cross-room rejection, perfect-negotiation roles, room capacity, stale-peer cleanup, call-quality grading, and adaptive sender profiles.
 
 ```mermaid
 sequenceDiagram
   participant A as Peer A
-  participant S as Signaling service
+  participant R as Room registry
   participant B as Peer B
-  A->>S: sequenced offer
-  S->>B: room-scoped offer
-  B->>S: answer
-  S->>A: answer
-  A-->>B: ICE candidates
+  A->>R: join + offer
+  R->>B: sequenced offer
+  B->>R: answer
+  R->>A: answer
 ```
 
-Run `npm install && npm test`. The core is transport-independent; WebSocket signaling, browser adapters, TURN diagnostics, screen sharing, recording consent, and an Angular demo will be added without hiding native WebRTC primitives.
+```sh
+npm ci
+npm test
+```
 
-## Non-goals
-
-- Acting as an SFU or media server
-- Recording without explicit participant consent
-- Treating signaling authentication as optional
-
+There is no WebSocket server or media server here. Applications provide the transport, authentication, TURN service, and consent flow.
