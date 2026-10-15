@@ -28,3 +28,25 @@ export class RoomPeer {
     this.lastRemoteSequence=signal.sequence;return true;
   }
 }
+
+export type RoomEvent = {type:"joined"|"left";roomId:string;peerId:string;at:number};
+export class RoomRegistry {
+  private rooms=new Map<string,Map<string,number>>();
+  readonly events:RoomEvent[]=[];
+  constructor(readonly maxPeers=12,readonly idleTtlMs=60_000){}
+  join(roomId:string,peerId:string,now=Date.now()):string[] {
+    this.sweep(now); const room=this.rooms.get(roomId)??new Map<string,number>();
+    if(!room.has(peerId)&&room.size>=this.maxPeers) throw new Error("room capacity reached");
+    const existing=[...room.keys()].filter(id=>id!==peerId);
+    room.set(peerId,now); this.rooms.set(roomId,room); this.events.push({type:"joined",roomId,peerId,at:now}); return existing;
+  }
+  heartbeat(roomId:string,peerId:string,now=Date.now()):boolean {if(this.rooms.get(roomId)?.get(peerId)===undefined)return false;this.rooms.get(roomId)!.set(peerId,now);return true;}
+  leave(roomId:string,peerId:string,now=Date.now()):boolean {const room=this.rooms.get(roomId);if(!room?.delete(peerId))return false;if(room.size===0)this.rooms.delete(roomId);this.events.push({type:"left",roomId,peerId,at:now});return true;}
+  peers(roomId:string):string[]{return [...(this.rooms.get(roomId)?.keys()??[])].sort();}
+  sweep(now=Date.now()):number {let removed=0;for(const [roomId,room] of this.rooms)for(const [peerId,lastSeen] of room)if(now-lastSeen>=this.idleTtlMs){this.leave(roomId,peerId,now);removed++;}return removed;}
+}
+
+export type AdaptiveProfile={maxBitrateKbps:number;scaleResolutionDownBy:number;requestKeyFrame:boolean};
+export function adaptiveProfile(grade:QualityGrade):AdaptiveProfile {
+  switch(grade){case "excellent":return{maxBitrateKbps:2500,scaleResolutionDownBy:1,requestKeyFrame:false};case "good":return{maxBitrateKbps:1500,scaleResolutionDownBy:1,requestKeyFrame:false};case "degraded":return{maxBitrateKbps:700,scaleResolutionDownBy:1.5,requestKeyFrame:false};case "poor":return{maxBitrateKbps:250,scaleResolutionDownBy:2,requestKeyFrame:true};}
+}
